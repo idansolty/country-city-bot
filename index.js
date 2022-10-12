@@ -10,7 +10,7 @@ const client = new Client();
 let online = [];
 
 client.on('qr', qr => {
-  qrcode.generate(qr, { small: false });
+  qrcode.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
