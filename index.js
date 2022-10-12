@@ -10,7 +10,7 @@ const client = new Client();
 let online = [];
 
 client.on('qr', qr => {
-  qrcode.generate(qr, { small: true });
+  qrcode.generate(qr, { small: false });
 });
 
 client.on('ready', () => {
@@ -84,7 +84,7 @@ const countryCity = async (groupName, chat) => {
 
     pushHistoryInfo(groupName, sentMessage);
 
-    if (await waitTillTime(new Date(randomTime.getTime() + 1000 * 5), groupName)) {
+    if (await waitTillTime(new Date(randomTime.getTime() + ONE_HOUR_MILISECONDS), groupName)) {
       return;
     };
 
@@ -97,7 +97,7 @@ const countryCity = async (groupName, chat) => {
 
     const uniqMessages = _.uniqBy(relevantMessages, "from");
 
-    const allUsersInGroup = choosenChat.participants;
+    const allUsersInGroup = choosenChat.participants.filter((user) => !user.isAdmin);
 
     const usersThatDidNotAnswer = allUsersInGroup.filter((id) => !uniqMessages.find(m => (m.author || m.from) === id.id._serialized))
 
@@ -152,7 +152,7 @@ const randomDate = (start, end) => {
 }
 
 const randomHebrewLetter = () => {
-  const number = randomNumber(1488, 1514);
+  let number = randomNumber(1488, 1514);
 
   if ([1509, 1507, 1503, 1501, 1498].includes(number)) {
     number += 1;
@@ -169,12 +169,12 @@ const randomTimeTommorow = () => {
   const now = new Date();
 
   // TOMMOROW BETWEEN 7 TO 23->
-  // const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 7)
-  // const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23)
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 7)
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23)
 
   // IN THE NEXT 10 SECONDS ->
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds() + 10)
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds() + 20)
+  // const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds() + 10)
+  // const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds() + 20)
 
   return randomDate(start, end);
 }
