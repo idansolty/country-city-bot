@@ -3,6 +3,10 @@ const _ = require('lodash');
 
 const types = ["עיר", "מדינה", "חי", "צומח", "דומם", "שם של בן", "שם של בת", "מקצוע"]
 const ONE_HOUR_MILISECONDS = 1000 * 60 * 60;
+let shush = [];
+let blacklist = ["972542357088-1584821912@g.us", "120363044786658069@g.us"];
+let shouldRemove = [];
+let groupsToRemoveFrom = ["120363025989806200@g.us", "120363043871636545@g.us"];
 
 const { Client } = require('whatsapp-web.js');
 const client = new Client();
@@ -21,9 +25,18 @@ client.on('ready', () => {
 
 client.on('message_create', async message => {
   if (message.body === '!ping') {
-    message.reply('pong');
-  }
-  else if (message.body.startsWith('!countryCity ')) {
+    if (message.author) {
+      if (blacklist.includes(message.from)) {
+        message.reply(' pong יא זבל מנסה להפיל אותי אה? יא שמוק', message.author);
+      } else {
+        message.reply('pong', message.author);
+      }
+    } else if (message.fromMe) {
+      message.reply('pong', message.from);
+    } else {
+      message.reply('pong');
+    }
+  } else if (message.body.startsWith('!countryCity ')) {
     let groupName = message.body.slice(13);
 
     if (online.includes(groupName)) {
@@ -52,6 +65,10 @@ client.on('message_create', async message => {
     const onlineList = JSON.stringify(online, null, 2)
 
     message.reply(`משחקים פעילים בבוט זה: \n ${onlineList.slice(3, onlineList.length - 1)}`);
+  } else if (message.body === '!remove') {
+    const messageToSend = JSON.stringify(shouldRemove, null, 2)
+
+    message.reply(messageToSend);
   } else if (message.body.startsWith('!setNextTime ')) {
     const params = message.body.slice(13).split("\n");
 
@@ -94,16 +111,57 @@ client.on('message_create', async message => {
     const mappedIds = usersThatDidNotAnswer.map(user => user.id._serialized);
 
     console.log(msgs);
-  }
+  } else if (message.body.startsWith('!shush ')) {
+    const groupname = message.body.slice(7);
 
+    shush.includes(groupname) ? "" : shush.push(groupname)
+  } else if (message.body.startsWith('!unshush ')) {
+    const groupname = message.body.slice(9);
+
+    shush = shush.filter((shushed => shushed !== groupname))
+  }
 });
+
+client.on('message_reaction', async reaction => {
+  if (groupsToRemoveFrom.includes(reaction.msgId.remote) && reaction.reaction === '6⃣') {
+    const chat = await new Promise((resolve, reject) => {
+      setTimeout(reject, 30 * 1000)
+      client.getChatById(reaction.msgId.remote).then(resolve);
+    })
+
+    const reactingParticipant = await chat.participants.find(user => user.id._serialized === reaction.id.participant)
+    const reactedParticipant = await chat.participants.find(user => user.id._serialized === reaction.msgId.participant)
+
+    if (reactedParticipant && reactingParticipant && reactingParticipant.isAdmin && !reactedParticipant.isAdmin && reaction.reaction === '6⃣') {
+      console.log(`removing ${reactedParticipant.id._serialized}`)
+      await chat.removeParticipants([reactedParticipant.id._serialized])
+
+      // reaction.reply('pong', reactingParticipant.id._serialized);
+    }
+  } else if (groupsToRemoveFrom.includes(reaction.msgId.remote) && reaction.reaction === '😮') {
+    const chat = await new Promise((resolve, reject) => {
+      setTimeout(reject, 30 * 1000)
+      client.getChatById(reaction.msgId.remote).then(resolve);
+    })
+
+    const reactingParticipant = chat.participants.find(user => user.id._serialized === reaction.id.participant)
+    const reactedParticipant = chat.groupMetadata.pastParticipants.find(user => user.id._serialized === reaction.msgId.participant)
+
+    if (reactedParticipant && reactingParticipant && reactingParticipant.isAdmin && reaction.reaction === '😮') {
+      console.log(`adding ${reactedParticipant.id._serialized}`)
+      await chat.addParticipants([reactedParticipant.id._serialized])
+
+      // reaction.reply('pong', message.author);
+    }
+  }
+})
 
 client.initialize();
 
 const countryCity = async (groupName, chat) => {
   const choosenChat = chat;
 
-  let randomTime = randomTimeToday()
+  let randomTime = randomTimeTommorow()
 
   console.log("started countryCity!");
   while (true) {
@@ -147,13 +205,30 @@ const countryCity = async (groupName, chat) => {
     const usersThatDidNotAnswer = allUsersInGroup.filter((id) => !uniqMessages.find(m => (m.author || m.from) === id.id._serialized))
 
     const mappedIds = usersThatDidNotAnswer.map(user => user.id._serialized);
-    choosenChat.removeParticipants(mappedIds)
+
+    shouldRemove.push(mappedIds);
+
+    console.log(mappedIds);
+
+    // choosenChat.removeParticipants(mappedIds)
 
     randomTime = randomTimeTommorow()
   }
 }
 
 const pushHistoryInfo = (groupName, action) => {
+  const parsedObject = {
+    time: `${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+    message: action
+  };
+
+  const index = online.findIndex(group => group.id === groupName);
+  online[index].history ?
+    online[index].history.push(parsedObject) :
+    online[index].history = [parsedObject]
+}
+
+const pushDeletedInfo = (groupName, action) => {
   const parsedObject = {
     time: `${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
     message: action
