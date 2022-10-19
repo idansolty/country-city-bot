@@ -8,6 +8,8 @@ let blacklist = ["972542357088-1584821912@g.us", "120363044786658069@g.us"];
 let shouldRemove = [];
 let groupsToRemoveFrom = ["120363025989806200@g.us", "120363043871636545@g.us"];
 
+let groupesToAddTo = ["120363044427567257@g.us", "120363044786658069@g.us"]
+
 const { Client } = require('whatsapp-web.js');
 const client = new Client();
 
@@ -98,19 +100,21 @@ client.on('message_create', async message => {
 
     const chat = chats.find((chat) => chat.name === "ארץ עיר האחרון שורד - 2🧠❓");
 
-    const messages = await chat.fetchMessages({ limit: 500 });
+    const dead_chat = chats.find((chat) => chat.name === "ארץ עיר - אי המודחים");
 
-    const msgs = messages.slice(messages.findIndex((searchedMessages => searchedMessages.id.id === messages[305].id.id)) + 1)
+    // const messages = await chat.fetchMessages({ limit: 500 });
 
-    const uniqMessages = msgs.filter((m) => m.type !== "revoked");
+    // const msgs = messages.slice(messages.findIndex((searchedMessages => searchedMessages.id.id === messages[305].id.id)) + 1)
 
-    const allUsersInGroup = chat.participants.filter((user) => !user.isAdmin);
+    // const uniqMessages = msgs.filter((m) => m.type !== "revoked");
 
-    const usersThatDidNotAnswer = allUsersInGroup.filter((id) => !uniqMessages.find(m => (m.author || m.from) === id.id._serialized))
+    // const allUsersInGroup = chat.participants.filter((user) => !user.isAdmin);
 
-    const mappedIds = usersThatDidNotAnswer.map(user => user.id._serialized);
+    // const usersThatDidNotAnswer = allUsersInGroup.filter((id) => !uniqMessages.find(m => (m.author || m.from) === id.id._serialized))
 
-    console.log(msgs);
+    const mappedIds = chat.groupMetadata.pastParticipants.map(user => user.id._serialized);
+
+    console.log(mappedIds);
   } else if (message.body.startsWith('!shush ')) {
     const groupname = message.body.slice(7);
 
@@ -119,26 +123,43 @@ client.on('message_create', async message => {
     const groupname = message.body.slice(9);
 
     shush = shush.filter((shushed => shushed !== groupname))
+  } else if (message.body === "!chatParticipants") {
+    const chat = await new Promise((resolve, reject) => {
+      setTimeout(reject, 30 * 1000)
+      client.getChatById("120363025989806200@g.us").then(resolve);
+    })
+
+    message.reply(JSON.stringify(chat.participants.map(user => user.id._serialized)));
   }
 });
 
 client.on('message_reaction', async reaction => {
-  if (groupsToRemoveFrom.includes(reaction.msgId.remote) && reaction.reaction === '6⃣') {
+  const placeInWhitelist = groupsToRemoveFrom.findIndex((value) => value === reaction.msgId.remote);
+
+  if (placeInWhitelist !== -1 && parseInt(reaction.reaction) === 6) {
     const chat = await new Promise((resolve, reject) => {
       setTimeout(reject, 30 * 1000)
       client.getChatById(reaction.msgId.remote).then(resolve);
     })
 
-    const reactingParticipant = await chat.participants.find(user => user.id._serialized === reaction.id.participant)
-    const reactedParticipant = await chat.participants.find(user => user.id._serialized === reaction.msgId.participant)
+    const reactingParticipant = chat.participants.find(user => user.id._serialized === reaction.id.participant)
+    const reactedParticipant = chat.participants.find(user => user.id._serialized === reaction.msgId.participant)
 
-    if (reactedParticipant && reactingParticipant && reactingParticipant.isAdmin && !reactedParticipant.isAdmin && reaction.reaction === '6⃣') {
+    if (reactedParticipant && reactingParticipant && reactingParticipant.isAdmin && !reactedParticipant.isAdmin && parseInt(reaction.reaction) === 6) {
       console.log(`removing ${reactedParticipant.id._serialized}`)
       await chat.removeParticipants([reactedParticipant.id._serialized])
 
+      if (groupesToAddTo[placeInWhitelist]) {
+        const other_chat = await new Promise((resolve, reject) => {
+          setTimeout(reject, 30 * 1000)
+          client.getChatById(groupesToAddTo[placeInWhitelist]).then(resolve);
+        })
+
+        await other_chat.addParticipants([reactedParticipant.id._serialized])
+      }
       // reaction.reply('pong', reactingParticipant.id._serialized);
     }
-  } else if (groupsToRemoveFrom.includes(reaction.msgId.remote) && reaction.reaction === '😮') {
+  } else if (placeInWhitelist !== -1 && reaction.reaction === '😮') {
     const chat = await new Promise((resolve, reject) => {
       setTimeout(reject, 30 * 1000)
       client.getChatById(reaction.msgId.remote).then(resolve);
@@ -151,6 +172,14 @@ client.on('message_reaction', async reaction => {
       console.log(`adding ${reactedParticipant.id._serialized}`)
       await chat.addParticipants([reactedParticipant.id._serialized])
 
+      if (groupesToAddTo[placeInWhitelist]) {
+        const other_chat = await new Promise((resolve, reject) => {
+          setTimeout(reject, 30 * 1000)
+          client.getChatById(groupesToAddTo[placeInWhitelist]).then(resolve);
+        })
+
+        await other_chat.removeParticipants([reactedParticipant.id._serialized])
+      }
       // reaction.reply('pong', message.author);
     }
   }
